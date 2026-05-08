@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jojie P. Stegall — Data Center Operations</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700;900&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1318;
+    --surface2: #111820;
+    --border: #1e2d3d;
+    --accent: #00d4ff;
+    --accent2: #00ff9d;
+    --accent3: #ff6b35;
+    --text: #c8d8e8;
+    --muted: #4a6075;
+    --white: #e8f4ff;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-weight: 300;
+    overflow-x: hidden;
+  }
+
+  /* ── SCAN LINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,212,255,0.015) 2px,
+      rgba(0,212,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 48px;
+    background: rgba(8,12,16,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .nav-logo span { color: var(--muted); }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--accent); }
+
+  .nav-status {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* ── HERO ── */
+  #hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 120px 48px 80px;
+    overflow: hidden;
+  }
+
+  .hero-corner {
+    position: absolute;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+  .hero-corner.tl { top: 100px; left: 48px; }
+  .hero-corner.tr { top: 100px; right: 48px; text-align: right; }
+  .hero-corner.bl { bottom: 80px; left: 48px; }
+  .hero-corner.br { bottom: 80px; right: 48px; text-align: right; }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+  }
+
+  .hero-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.2s forwards;
+  }
+
+  .hero-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(72px, 10vw, 140px);
+    font-weight: 900;
+    line-height: 0.9;
+    color: var(--white);
+    text-transform: uppercase;
+    letter-spacing: -2px;
+    margin-bottom: 8px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.35s forwards;
+  }
+
+  .hero-name .highlight {
+    color: transparent;
+    -webkit-text-stroke: 2px var(--accent);
+  }
+
+  .hero-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(28px, 4vw, 52px);
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    margin-bottom: 40px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.5s forwards;
+  }
+
+  .hero-title .accent { color: var(--accent2); }
+
+  .hero-summary {
+    max-width: 580px;
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text);
+    margin-bottom: 48px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.65s forwards;
+    border-left: 2px solid var(--accent);
+    padding-left: 20px;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.8s forwards;
+  }
+
+  .btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    text-decoration: none;
+    border: 1px solid;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: transparent; color: var(--accent); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Hero Visual */
+  .hero-visual {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 45%;
+    height: 70vh;
+    opacity: 0;
+    animation: fadeIn 1s 1s forwards;
+  }
+
+  .rack-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ── SECTIONS ── */
+  section {
+    position: relative;
+    z-index: 2;
+    padding: 96px 48px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 64px;
+  }
+
+  .section-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+  }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(32px, 4vw, 56px);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--white);
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* ── EXPERIENCE ── */
+  #experience { background: var(--surface); }
+
+  .timeline {
+    position: relative;
+    padding-left: 32px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, var(--accent), var(--border), transparent);
+  }
+
+  .job {
+    position: relative;
+    margin-bottom: 64px;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: all 0.6s;
+  }
+
+  .job.visible { opacity: 1; transform: translateX(0); }
+
+  .job::before {
+    content: '';
+    position: absolute;
+    left: -36px;
+    top: 8px;
+    width: 9px; height: 9px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--accent);
+  }
+
+  .job-meta {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .job-company {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .job-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--white);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .job-date {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    white-space: nowrap;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    align-self: flex-start;
+  }
+
+  .job-bullets {
+    list-style: none;
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .job-bullets li {
+    position: relative;
+    padding-left: 20px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  .job-bullets li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-size: 12px;
+  }
+
+  /* ── SKILLS ── */
+  #skills { background: var(--bg); }
+
+  .skills-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2px;
+    background: var(--border);
+  }
+
+  .skill-panel {
+    background: var(--surface);
+    padding: 32px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s;
+  }
+
+  .skill-panel.visible { opacity: 1; transform: translateY(0); }
+
+  .skill-panel:hover {
+    background: var(--surface2);
+  }
+
+  .skill-panel-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .skill-panel-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .skill-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.15);
+    padding: 5px 12px;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .tag:hover {
+    background: rgba(0,212,255,0.12);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── STATS STRIP ── */
+  .stats-strip {
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 48px;
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 32px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    display: block;
+  }
+
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 8px;
+    display: block;
+  }
+
+  /* ── CERTIFICATIONS ── */
+  #certs { background: var(--surface); }
+
+  .certs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .cert-card {
+    border: 1px solid var(--border);
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s;
+  }
+
+  .cert-card.visible { opacity: 1; transform: translateY(0); }
+
+  .cert-card:hover { border-color: var(--accent2); }
+
+  .cert-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent2), transparent);
+  }
+
+  .cert-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+
+  .cert-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .cert-detail {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    line-height: 1.8;
+  }
+
+  .cert-status {
+    display: inline-block;
+    margin-top: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .cert-status.in-progress {
+    border-color: var(--accent3);
+    color: var(--accent3);
+  }
+
+  /* ── EDUCATION ── */
+  #education { background: var(--bg); }
+
+  .edu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2px;
+    background: var(--border);
+  }
+
+  .edu-card {
+    background: var(--surface);
+    padding: 40px 32px;
+    position: relative;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s;
+  }
+
+  .edu-card.visible { opacity: 1; transform: translateY(0); }
+
+  .edu-degree {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+
+  .edu-school {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .edu-date {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── CONTACT ── */
+  #contact {
+    background: var(--surface);
+    text-align: center;
+    padding: 96px 48px;
+  }
+
+  .contact-eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .contact-heading {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: clamp(40px, 6vw, 80px);
+    font-weight: 900;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 40px;
+    line-height: 1;
+  }
+
+  .contact-links {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .contact-link {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    text-decoration: none;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 24px;
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+
+  .contact-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative;
+    z-index: 2;
+    padding: 24px 48px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  footer p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* ── SCROLL ANIMATIONS ── */
+  .observe { opacity: 0; transform: translateY(20px); transition: opacity 0.6s, transform 0.6s; }
+  .observe.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── MOBILE ── */
+  @media (max-width: 768px) {
+    nav { padding: 16px 24px; }
+    .nav-links { display: none; }
+    section { padding: 64px 24px; }
+    #hero { padding: 100px 24px 64px; }
+    .hero-visual { display: none; }
+    .stats-strip { padding: 40px 24px; }
+    footer { padding: 20px 24px; }
+    .hero-corner.tr, .hero-corner.br { display: none; }
+  }
+
+  /* Blinking cursor */
+  .cursor::after {
+    content: '_';
+    animation: blink 1s infinite;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Glitch on hover for name */
+  .hero-name:hover { animation: glitch 0.3s linear; }
+  @keyframes glitch {
+    0% { text-shadow: 2px 0 var(--accent3); }
+    25% { text-shadow: -2px 0 var(--accent2); clip-path: inset(20% 0 60% 0); }
+    50% { text-shadow: 2px 0 var(--accent); }
+    75% { text-shadow: -2px 0 var(--accent3); clip-path: inset(70% 0 0 0); }
+    100% { text-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">JPS<span>://</span>portfolio</div>
+  <ul class="nav-links">
+    <li><a href="#experience">Experience</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#certs">Certs</a></li>
+    <li><a href="#education">Education</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+  <div class="nav-status">
+    <span class="status-dot"></span>
+    Available for Opportunities
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-corner tl">// INIT SEQUENCE<br>LAT: 38.7849° N<br>LON: 77.1868° W</div>
+  <div class="hero-corner tr">DCO_TECH_III<br>AWS_INFRA<br>NOVA_REGION</div>
+  <div class="hero-corner bl">UPTIME: 4+ YRS<br>STATUS: OPERATIONAL</div>
+  <div class="hero-corner br">VA • DC METRO<br>CLEARANCE_ELIGIBLE</div>
+
+  <div class="hero-content">
+    <p class="hero-tag">// Data Center Operations Technician</p>
+    <h1 class="hero-name">Jojie<br><span class="highlight">Stegall</span></h1>
+    <p class="hero-title">AWS Infrastructure <span class="accent">&</span> Operations</p>
+    <p class="hero-summary">
+      Detail-oriented Data Center Operations Technician with 4+ years of hands-on experience supporting critical AWS infrastructure across large-scale live data center environments. Proficiency in hardware break/fix, network infrastructure, high-security rack migrations, and cross-functional collaboration. Ability to execute change management activities in live production environments and drive operational excellence through clear documentation and process improvement.
+    </p>
+    <div class="hero-ctas">
+      <a href="#experience" class="btn btn-primary">View Experience</a>
+      <a href="#contact" class="btn btn-secondary">Get in Touch</a>
+    </div>
+  </div>
+
+  <!-- SVG Server Rack Illustration -->
+  <div class="hero-visual">
+    <svg class="rack-svg" viewBox="0 0 400 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Rack frame -->
+      <rect x="60" y="20" width="280" height="560" rx="4" stroke="#1e2d3d" stroke-width="2" fill="#0d1318"/>
+      <!-- Left rail -->
+      <rect x="60" y="20" width="20" height="560" fill="#111820" stroke="#1e2d3d" stroke-width="1"/>
+      <!-- Right rail -->
+      <rect x="320" y="20" width="20" height="560" fill="#111820" stroke="#1e2d3d" stroke-width="1"/>
+
+      <!-- Servers (animated) -->
+      <g id="servers">
+        <!-- Server 1 - active (cyan) -->
+        <g transform="translate(80,36)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#00d4ff" stroke-width="0.5"/>
+          <circle cx="200" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="2.1s" repeatCount="indefinite"/></circle>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="2.1s" begin="0.3s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#00ff9d"><animate attributeName="opacity" values="1;0.3;1" dur="1.4s" repeatCount="indefinite"/></circle>
+          <rect x="56" y="12" width="120" height="8" rx="1" fill="#0a1a20" stroke="#1e2d3d" stroke-width="0.5"/>
+          <rect x="56" y="12" width="60" height="8" rx="1" fill="rgba(0,212,255,0.15)"><animate attributeName="width" values="20;80;20" dur="3s" repeatCount="indefinite"/></rect>
+        </g>
+
+        <!-- Server 2 -->
+        <g transform="translate(80,76)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <circle cx="200" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="1.8s" begin="0.5s" repeatCount="indefinite"/></circle>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="1.8s" begin="0.8s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#1e2d3d"/>
+          <rect x="56" y="12" width="120" height="8" rx="1" fill="#0a1a20" stroke="#1e2d3d" stroke-width="0.5"/>
+          <rect x="56" y="12" width="90" height="8" rx="1" fill="rgba(0,255,157,0.12)"><animate attributeName="width" values="50;100;50" dur="4s" repeatCount="indefinite"/></rect>
+        </g>
+
+        <!-- Blank 1U -->
+        <g transform="translate(80,116)">
+          <rect width="240" height="16" rx="1" fill="#080c10" stroke="#1e2d3d" stroke-width="0.5"/>
+        </g>
+
+        <!-- Server 3 - 2U -->
+        <g transform="translate(80,140)">
+          <rect width="240" height="48" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="56" height="32" rx="1" fill="#0a1a20" stroke="#00d4ff" stroke-width="0.5"/>
+          <text x="36" y="29" text-anchor="middle" font-family="Share Tech Mono" font-size="10" fill="#00d4ff">2U</text>
+          <circle cx="200" cy="16" r="4" fill="#ff6b35"><animate attributeName="opacity" values="1;0.2;1" dur="0.8s" repeatCount="indefinite"/></circle>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"/>
+          <circle cx="228" cy="16" r="4" fill="#00d4ff"/>
+          <rect x="76" y="12" width="100" height="8" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <rect x="76" y="28" width="100" height="8" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <rect x="76" y="12" width="70" height="8" rx="1" fill="rgba(255,107,53,0.2)"><animate attributeName="width" values="30;80;30" dur="2s" repeatCount="indefinite"/></rect>
+        </g>
+
+        <!-- Switch -->
+        <g transform="translate(80,200)">
+          <rect width="240" height="24" rx="2" fill="#111820" stroke="#00d4ff" stroke-width="0.5"/>
+          <rect x="8" y="6" width="16" height="12" rx="1" fill="#0d1318" stroke="#00d4ff" stroke-width="0.5"/>
+          <!-- SFP ports row -->
+          <g>
+            <rect x="30" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.8"/>
+            <rect x="42" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.8"/>
+            <rect x="54" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.6"/>
+            <rect x="66" y="8" width="8" height="8" rx="1" fill="#00ff9d" opacity="0.8"/>
+            <rect x="78" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.8"/>
+            <rect x="90" y="8" width="8" height="8" rx="1" fill="#1e2d3d"/>
+            <rect x="102" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.7"/>
+            <rect x="114" y="8" width="8" height="8" rx="1" fill="#00ff9d" opacity="0.9"/>
+            <rect x="126" y="8" width="8" height="8" rx="1" fill="#1e2d3d"/>
+            <rect x="138" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.8"/>
+            <rect x="150" y="8" width="8" height="8" rx="1" fill="#00d4ff" opacity="0.5"/>
+            <rect x="162" y="8" width="8" height="8" rx="1" fill="#1e2d3d"/>
+          </g>
+          <circle cx="220" cy="12" r="3" fill="#00ff9d"><animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite"/></circle>
+          <circle cx="230" cy="12" r="3" fill="#00d4ff"><animate attributeName="opacity" values="0.3;1;0.3" dur="0.7s" repeatCount="indefinite"/></circle>
+        </g>
+
+        <!-- More servers -->
+        <g transform="translate(80,236)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <circle cx="200" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="2.5s" begin="0.2s" repeatCount="indefinite"/></circle>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="2.5s" begin="0.6s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#00ff9d"/>
+          <rect x="56" y="12" width="120" height="8" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <rect x="56" y="12" width="45" height="8" rx="1" fill="rgba(0,212,255,0.1)"><animate attributeName="width" values="10;90;10" dur="5s" repeatCount="indefinite"/></rect>
+        </g>
+
+        <g transform="translate(80,276)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <circle cx="200" cy="16" r="4" fill="#1e2d3d"/>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="3s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#00ff9d"/>
+          <rect x="56" y="12" width="120" height="8" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+        </g>
+
+        <!-- Cable management -->
+        <g transform="translate(80,316)">
+          <rect width="240" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d" stroke-width="0.5"/>
+          <path d="M20,8 Q60,0 100,8 Q140,16 180,8 Q200,4 220,8" stroke="#00d4ff" stroke-width="1" fill="none" opacity="0.5"/>
+          <path d="M20,8 Q70,16 120,8 Q160,0 200,8 Q215,12 220,8" stroke="#00ff9d" stroke-width="1" fill="none" opacity="0.4"/>
+        </g>
+
+        <g transform="translate(80,340)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#00d4ff" stroke-width="0.5"/>
+          <circle cx="200" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/></circle>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="1.6s" begin="0.4s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#00ff9d"/>
+        </g>
+
+        <g transform="translate(80,380)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <circle cx="200" cy="16" r="4" fill="#00d4ff"/>
+          <circle cx="214" cy="16" r="4" fill="#1e2d3d"/>
+          <circle cx="228" cy="16" r="4" fill="#00ff9d"><animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/></circle>
+        </g>
+
+        <!-- PDU strip -->
+        <g transform="translate(80,420)">
+          <rect width="240" height="16" rx="8" fill="#111820" stroke="#00d4ff" stroke-width="0.5"/>
+          <circle cx="20" cy="8" r="4" fill="#00ff9d" opacity="0.6"/>
+          <circle cx="36" cy="8" r="4" fill="#00ff9d" opacity="0.7"/>
+          <circle cx="52" cy="8" r="4" fill="#00ff9d" opacity="0.9"/>
+          <circle cx="68" cy="8" r="4" fill="#00ff9d" opacity="0.5"/>
+          <circle cx="84" cy="8" r="4" fill="#00ff9d" opacity="0.8"/>
+          <text x="150" y="12" font-family="Share Tech Mono" font-size="8" fill="#4a6075">PDU_A // 15A</text>
+        </g>
+
+        <g transform="translate(80,444)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <circle cx="200" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" begin="0.1s" repeatCount="indefinite"/></circle>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" begin="0.9s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#1e2d3d"/>
+        </g>
+
+        <g transform="translate(80,484)">
+          <rect width="240" height="32" rx="2" fill="#0d1318" stroke="#1e2d3d"/>
+          <rect x="8" y="8" width="40" height="16" rx="1" fill="#0a1a20" stroke="#1e2d3d"/>
+          <circle cx="200" cy="16" r="4" fill="#1e2d3d"/>
+          <circle cx="214" cy="16" r="4" fill="#00d4ff"><animate attributeName="opacity" values="1;0.3;1" dur="3.5s" repeatCount="indefinite"/></circle>
+          <circle cx="228" cy="16" r="4" fill="#00ff9d"/>
+        </g>
+
+      </g>
+
+      <!-- Rack label -->
+      <rect x="80" y="524" width="240" height="40" fill="#111820" stroke="#1e2d3d"/>
+      <text x="200" y="540" text-anchor="middle" font-family="Share Tech Mono" font-size="9" fill="#00d4ff" letter-spacing="2">AWS // NOVA-REGION</text>
+      <text x="200" y="555" text-anchor="middle" font-family="Share Tech Mono" font-size="8" fill="#4a6075">RACK-ID: DCO-7723</text>
+
+      <!-- Rack unit labels -->
+      <g font-family="Share Tech Mono" font-size="7" fill="#1e2d3d">
+        <text x="56" y="57">1U</text>
+        <text x="56" y="97">2U</text>
+        <text x="56" y="131">3U</text>
+        <text x="56" y="171">4U</text>
+        <text x="56" y="215">6U</text>
+        <text x="56" y="251">7U</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stat">
+    <span class="stat-num">4<span style="color:var(--muted);font-size:40px">+</span></span>
+    <span class="stat-label">Years at AWS</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">50<span style="color:var(--muted);font-size:40px">+</span></span>
+    <span class="stat-label">Data Centers</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">III</span>
+    <span class="stat-label">DCO Tech Level</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num">∞</span>
+    <span class="stat-label">Uptime Focus</span>
+  </div>
+</div>
+
+<!-- EXPERIENCE -->
+<section id="experience">
+  <div class="section-header">
+    <span class="section-num">// 01</span>
+    <h2 class="section-title">Experience</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="job">
+      <div class="job-meta">
+        <div>
+          <p class="job-company">Amazon Web Services — Intact Rack Migrations</p>
+          <p class="job-title">Data Center Operations Technician III</p>
+        </div>
+        <div class="job-date">DEC 2022 — MAY 2026</div>
+      </div>
+      <ul class="job-bullets">
+        <li>Trained and onboarded incoming technicians on daily operational procedures and safety protocols; additionally cross-trained partner teams on processes outside their core responsibilities.</li>
+        <li>Provided cross-team technical and operational support to ensure business SLAs are consistently met.</li>
+        <li>Authored technical troubleshooting guides for common blockers, reducing escalation frequency and resolution time.</li>
+        <li>Developed and implemented ticketing templates on SIM ticketing for recurring issues, streamlining resolution workflows for both internal and partner teams.</li>
+      </ul>
+    </div>
+
+    <div class="job">
+      <div class="job-meta">
+        <div>
+          <p class="job-company">Amazon Web Services — Intact Rack Migrations</p>
+          <p class="job-title">Data Center Operations Technician II</p>
+        </div>
+        <div class="job-date">JUL 2022 — DEC 2022</div>
+      </div>
+      <ul class="job-bullets">
+        <li>Configured and troubleshot switches and server hosts for high-visibility assets approaching SLA deadlines, ensuring minimal downtime and operational continuity.</li>
+        <li>Led high-security rack transfers of critical AWS assets across 50+ data centers throughout the Northern Virginia region.</li>
+        <li>Maintained and updated wikis accessible to thousands of Amazon employees, improving knowledge sharing and operational efficiency.</li>
+        <li>Collaborated as site lead with Technical Program Managers, Datacenter Security Managers, and DCO Support Engineers to ensure smooth asset handoffs.</li>
+      </ul>
+    </div>
+
+    <div class="job">
+      <div class="job-meta">
+        <div>
+          <p class="job-company">Amazon Web Services — Intact Rack Migrations</p>
+          <p class="job-title">Data Center Operations Technician I</p>
+        </div>
+        <div class="job-date">AUG 2021 — JUL 2022</div>
+      </div>
+      <ul class="job-bullets">
+        <li>Participated in high-security rack transfers of critical AWS assets across multiple data center locations.</li>
+        <li>Performed rack and stack deployments of servers and infrastructure hardware in adherence to defined installation standards.</li>
+        <li>Executed hardware break/fix activities including replacement of drives (SSD/HDD), RAM, CPUs, power supplies, and other server components.</li>
+        <li>Installed, troubleshot, and maintained structured cabling including copper, single-mode/multi-mode fiber, and optical transceivers across diverse switch and host configurations.</li>
+      </ul>
+    </div>
+
+    <div class="job">
+      <div class="job-meta">
+        <div>
+          <p class="job-company">Allied Universal Security Services</p>
+          <p class="job-title">Security Response Center Operator / Manager</p>
+        </div>
+        <div class="job-date">JAN 2018 — AUG 2021</div>
+      </div>
+      <ul class="job-bullets">
+        <li>Oversaw real-time monitoring of enterprise CCTV systems and security alarms across a high-security facility, ensuring rapid incident identification and response.</li>
+        <li>Led incident reporting processes, delivering clear and timely written and verbal briefings on security breaches to senior stakeholders.</li>
+        <li>Directed emergency response coordination with EMT, Fire Department, and law enforcement during critical incidents.</li>
+        <li>Managed global threat monitoring operations, proactively briefing traveling personnel on regional risks and coordinating with local site leads.</li>
+      </ul>
+    </div>
+
+    <div class="job">
+      <div class="job-meta">
+        <div>
+          <p class="job-company">Northern Virginia Community College</p>
+          <p class="job-title">IT Technician (Intern)</p>
+        </div>
+        <div class="job-date">MAR 2016 — AUG 2017</div>
+      </div>
+      <ul class="job-bullets">
+        <li>Supported the technical team with user account administration in Active Directory.</li>
+        <li>Imaged and updated software/hardware on lab computers; maintained printers and provided desktop support.</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section id="skills">
+  <div class="section-header">
+    <span class="section-num">// 02</span>
+    <h2 class="section-title">Skills & Competencies</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="skills-grid">
+    <div class="skill-panel">
+      <div class="skill-panel-label">Hardware & Infrastructure</div>
+      <div class="skill-tags">
+        <span class="tag">Server Rack & Stack</span>
+        <span class="tag">Hardware Break/Fix</span>
+        <span class="tag">SSD/HDD</span>
+        <span class="tag">RAM</span>
+        <span class="tag">CPUs</span>
+        <span class="tag">PSUs</span>
+        <span class="tag">Motherboards</span>
+        <span class="tag">Switch Config</span>
+        <span class="tag">Structured Cabling</span>
+        <span class="tag">Fiber Optics</span>
+        <span class="tag">Optical Transceivers</span>
+      </div>
+    </div>
+
+    <div class="skill-panel">
+      <div class="skill-panel-label">Platforms & Tools</div>
+      <div class="skill-tags">
+        <span class="tag">Windows 10/11</span>
+        <span class="tag">Linux</span>
+        <span class="tag">Microsoft Server</span>
+        <span class="tag">Mac OS</span>
+        <span class="tag">VMware</span>
+        <span class="tag">VirtualBox</span>
+        <span class="tag">PuTTY</span>
+        <span class="tag">ServiceNow</span>
+        <span class="tag">Oracle</span>
+        <span class="tag">Lenel OnGuard</span>
+        <span class="tag">Amazon Boost</span>
+        <span class="tag">SIM Ticketing</span>
+        <span class="tag">SharePoint</span>
+      </div>
+    </div>
+
+    <div class="skill-panel">
+      <div class="skill-panel-label">Languages</div>
+      <div class="skill-tags">
+        <span class="tag">Python</span>
+        <span class="tag">HTML/CSS</span>
+        <span class="tag">JavaScript</span>
+        <span class="tag">SQL</span>
+      </div>
+    </div>
+
+    <div class="skill-panel">
+      <div class="skill-panel-label">Security Tools</div>
+      <div class="skill-tags">
+        <span class="tag">Metasploit</span>
+        <span class="tag">Nmap</span>
+        <span class="tag">Hydra</span>
+        <span class="tag">John the Ripper</span>
+        <span class="tag">Burp Suite</span>
+      </div>
+    </div>
+
+    <div class="skill-panel">
+      <div class="skill-panel-label">Operational</div>
+      <div class="skill-tags">
+        <span class="tag">Asset Inventory</span>
+        <span class="tag">Lifecycle Tracking</span>
+        <span class="tag">Process Documentation</span>
+        <span class="tag">Cross-functional Collab</span>
+        <span class="tag">SLA Management</span>
+        <span class="tag">Change Management</span>
+        <span class="tag">Team Onboarding</span>
+      </div>
+    </div>
+
+    <div class="skill-panel">
+      <div class="skill-panel-label">Specializations</div>
+      <div class="skill-tags">
+        <span class="tag">Live DC Environments</span>
+        <span class="tag">High-Security Migrations</span>
+        <span class="tag">Multi-site Coordination</span>
+        <span class="tag">Rack Migrations</span>
+        <span class="tag">Network Infrastructure</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CERTIFICATIONS -->
+<section id="certs">
+  <div class="section-header">
+    <span class="section-num">// 03</span>
+    <h2 class="section-title">Certifications</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="certs-grid">
+    <div class="cert-card">
+      <div class="cert-icon">🔐</div>
+      <div class="cert-title">Pre-Security</div>
+      <div class="cert-detail">TryHackMe Learning Path<br>Completed</div>
+      <span class="cert-status">Completed</span>
+    </div>
+
+    <div class="cert-card">
+      <div class="cert-icon">💻</div>
+      <div class="cert-title">Complete Beginner</div>
+      <div class="cert-detail">TryHackMe Learning Path<br>Completed</div>
+      <span class="cert-status">Completed</span>
+    </div>
+
+    <div class="cert-card">
+      <div class="cert-icon">🌐</div>
+      <div class="cert-title">Web Fundamentals</div>
+      <div class="cert-detail">TryHackMe Learning Path<br>Completed</div>
+      <span class="cert-status">Completed</span>
+    </div>
+
+    <div class="cert-card">
+      <div class="cert-icon">🛡️</div>
+      <div class="cert-title">CompTIA Pentest+</div>
+      <div class="cert-detail">TryHackMe Learning Path<br>Completed</div>
+      <span class="cert-status">Completed</span>
+    </div>
+
+    <div class="cert-card">
+      <div class="cert-icon">⚔️</div>
+      <div class="cert-title">Jr. Penetration Tester</div>
+      <div class="cert-detail">TryHackMe Learning Path<br>Currently pursuing</div>
+      <span class="cert-status in-progress">In Progress</span>
+    </div>
+  </div>
+</section>
+
+<!-- EDUCATION -->
+<section id="education">
+  <div class="section-header">
+    <span class="section-num">// 04</span>
+    <h2 class="section-title">Education</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="edu-grid">
+    <div class="edu-card observe">
+      <div class="edu-degree">Bachelor of Science<br>Computer Networks & Cybersecurity</div>
+      <div class="edu-school">University of Maryland — College Park, MD</div>
+      <div class="edu-date">Graduated May 2021</div>
+    </div>
+    <div class="edu-card observe">
+      <div class="edu-degree">Associate of Science<br>General Studies</div>
+      <div class="edu-school">Northern Virginia Community College — Annandale, VA</div>
+      <div class="edu-date">Graduated May 2015</div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <p class="contact-eyebrow">// Initiate Connection</p>
+  <h2 class="contact-heading">Let's Link<span style="color:var(--accent)">.</span>Up</h2>
+  <div class="contact-links">
+    <a href="mailto:jojie.sgollayan@gmail.com" class="contact-link">
+      <span>✉</span> jojie.sgollayan@gmail.com
+    </a>
+    <a href="tel:7034630803" class="contact-link">
+      <span>☏</span> (703) 463-0803
+    </a>
+    <a href="#" class="contact-link">
+      <span>📍</span> Springfield, VA 22153
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2026 Jojie P. Stegall</p>
+  <p>DCO_TECH_III // AWS_NOVA // OPERATIONAL</p>
+  <p>Built with: HTML + CSS + JS</p>
+</footer>
+
+<script>
+  // Intersection Observer for scroll animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.job, .skill-panel, .cert-card, .edu-card, .observe').forEach(el => {
+    observer.observe(el);
+  });
+
+  // Stagger skill panels
+  document.querySelectorAll('.skill-panel').forEach((el, i) => {
+    el.style.transitionDelay = `${i * 0.08}s`;
+  });
+
+  // Stagger cert cards
+  document.querySelectorAll('.cert-card').forEach((el, i) => {
+    el.style.transitionDelay = `${i * 0.1}s`;
+  });
+
+  // Stagger jobs
+  document.querySelectorAll('.job').forEach((el, i) => {
+    el.style.transitionDelay = `${i * 0.1}s`;
+  });
+
+  // Animated counter for stats
+  function animateCount(el, target, suffix = '') {
+    let start = 0;
+    const duration = 1500;
+    const step = (timestamp) => {
+      if (!start) start = timestamp;
+      const progress = Math.min((timestamp - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(eased * target) + suffix;
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  const statsObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        statsObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('.stats-strip').forEach(el => statsObserver.observe(el));
+</script>
+
+</body>
+</html>
